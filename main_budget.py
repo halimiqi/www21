@@ -52,7 +52,7 @@ gpu_id = 1
 ###################################
 ### read and process the graph
 model_str = FLAGS.model
-# dataset: IMDB-MULTI, MUTAG 
+# dataset: IMDB-MULTI, PTC_MR 
 dataset_str = FLAGS.dataset
 noise_ratio = 0.1
 size = 0.1 # budget size
