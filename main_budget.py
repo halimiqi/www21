@@ -21,7 +21,6 @@ from tqdm import tqdm
 # Settings
 flags = tf.app.flags
 FLAGS = flags.FLAGS
-### BN  maybe cause the error
 
 ###
 ##### this is for gae part
@@ -53,10 +52,10 @@ gpu_id = 1
 ###################################
 ### read and process the graph
 model_str = FLAGS.model
+# here is the possible dataset, IMDB-BINARY, IMDB-MULTI, REDDIT-BINARY, MUTAG, PTC_MR 
 dataset_str = FLAGS.dataset
 noise_ratio = 0.1
-size = 0.5
-
+size = 0.1 # budget size
 
 n_class = FLAGS.n_clusters
 
@@ -114,6 +113,7 @@ def get_new_feature(feed_dict, sess,flip_features_csr, feature_entry, model):
         for j in feature_entry:
             flip_features_lil[index, j] = 1 - flip_features_lil[index, j]
     return flip_features_lil.tocsr()
+
 # Train model
 def train():
     ## add noise label
@@ -139,7 +139,7 @@ def train():
     new_learning_rate_gen = tf.train.exponential_decay(FLAGS.learn_rate_init_gen, global_step=global_steps, decay_steps=100,
                                                        decay_rate=0.95)
     new_learn_rate_value = FLAGS.learn_rate_init
-    ## set the placeholders
+    # set the placeholders
     placeholders = {
         'features': tf.sparse_placeholder(tf.float32, name= "ph_features"),
         'adj': tf.sparse_placeholder(tf.float32,name= "ph_adj"),
@@ -177,10 +177,10 @@ def train():
                                   new_learning_rate_gen = new_learning_rate_gen,
                                   placeholders = placeholders
                                   )
-    # init the sess
+    # init the session
     sess = tf.Session()
     sess.run(tf.global_variables_initializer())
-    ### initial clean and noised_mask
+    # initial clean and noised_mask
     clean_mask = np.array([1,2,3,4,5])
     noised_mask = np.array([6,7,8,9,10])
     noised_num = noised_mask.shape[0] / 2
@@ -190,14 +190,13 @@ def train():
     node_mask[train_num_nodes_all[0]:, :] = 0
     feed_dict.update({placeholders['node_mask']:node_mask})
     feed_dict.update({placeholders['dropout']: FLAGS.dropout})
-    # #####################################################
+    # ##################################
     if if_train:
         for epoch in range(FLAGS.epochs):
             for i in tqdm(range(len(train_feature_input))):
                 train_one_graph(train_adj_list[i], train_adj_orig_list[i], train_feature_input[i], train_num_nodes_all[i], train_k_list[i], model, opt, placeholders,sess,new_learning_rate_gen,feed_dict, epoch, i)
         saver = tf.train.Saver()
-        # saver.save(sess, "./checkpoints/{}/model.ckpt".format(cv_index))
-        saver.save(sess, "./checkpoints/{}.ckpt".format(dataset_index))
+        saver.save(sess, "./checkpoints/{}.ckpt".format(dataset_str))
         print("Optimization Finished!")
         psnr_list = []
         wls_list = []
@@ -205,11 +204,9 @@ def train():
             psnr, wls = test_one_graph(test_adj_list[i], test_adj_orig_list[i],test_feature_input[i],test_num_nodes_all[i],test_k_list[i] , model, placeholders, sess, feed_dict)
             psnr_list.append(psnr)
             wls_list.append(wls)
-    # new_adj = get_new_adj(feed_dict,sess, model)
     else:
       saver = tf.train.Saver()
-      # saver.restore(sess, "./checkpoints/{}/model.ckpt".format(cv_index))
-      saver.restore(sess, "./checkpoints/{}.ckpt".format(dataset_index))
+      saver.restore(sess, "./checkpoints/{}.ckpt".format(dataset_str))
       psnr_list = []
       wls_list = []
       for i in range(len(test_feature_input)):
@@ -243,13 +240,10 @@ def train_one_graph(adj,adj_orig, features_csr ,num_node, k_num ,model, opt,plac
     adj_label = adj_new + sp.eye(adj.shape[0])
     adj_label = sparse_to_tuple(adj_label)
     ############
-    ## set the placeholders
     # build models
     adj_clean = adj_orig.tocoo()
     adj_clean_tensor = tf.SparseTensor(indices =np.stack([adj_clean.row,adj_clean.col], axis = -1),
                                        values = adj_clean.data, dense_shape = adj_clean.shape )
-    # pos_weight = float(adj.shape[0] * adj.shape[0] - adj.sum()) / adj.sum()
-    # norm = adj.shape[0] * adj.shape[0] / float((adj.shape[0] * adj.shape[0] - adj.sum()) * 2)
     ### initial clean and noised_mask
     clean_mask = np.array([1,2,3,4,5])
     noised_mask = np.array([6,7,8,9,10])
@@ -267,8 +261,7 @@ def train_one_graph(adj,adj_orig, features_csr ,num_node, k_num ,model, opt,plac
     #####################################################
     t = time.time()
     ########
-    # last_reg = current_reg
-    if epoch > int(FLAGS.epochs / 2):  ## here we can contorl the manner of new model
+    if epoch > int(FLAGS.epochs / 2):  ## here we can control the manner of new model
         _= sess.run([opt.G_min_op], feed_dict=feed_dict,options=run_options)
 
     else:
@@ -278,7 +271,7 @@ def train_one_graph(adj,adj_orig, features_csr ,num_node, k_num ,model, opt,plac
             feed_dict.update({placeholders["noised_mask"]: noised_indexes})
             feed_dict.update({placeholders["clean_mask"]: clean_indexes})
             feed_dict.update({placeholders["noised_num"]: len(noised_indexes)/2})
-    ##
+
     if epoch % 1 == 0 and graph_index == 0:
         if epoch > int(FLAGS.epochs / 2):
             print("This is the generation part")
@@ -307,18 +300,14 @@ def test_one_graph(adj , adj_orig, features_csr, num_node, k_num ,model,placehol
     adj_label_sparse = adj_label
     adj_label = sparse_to_tuple(adj_label)
     adj_clean = adj_orig.tocsr()
-    # pdb.set_trace()
-    k_num = int(k_num*size/noise_ratio)
+    k_num = int(k_num*size/noise_ratio) # match the budget size
     if k_num !=0:
-        # max_k = int((adj.sum()-adj_orig.sum())/2)
-        # k_num = min(int(k_num*size/noise_ratio),max_k)
         adj_norm, adj_norm_sparse = preprocess_graph(adj_new)
         feed_dict.update({placeholders["adj"]: adj_norm})
         feed_dict.update({placeholders["adj_orig"]: adj_label})
         feed_dict.update({placeholders["features"]: features})
         feed_dict.update({placeholders['dropout']: FLAGS.dropout})
         model.k = k_num
-        # feed_dict = construct_feed_dict(adj_norm, adj_label, features, clean_mask, noised_mask, noised_num, placeholders)
         x_tilde = sess.run(model.realD_tilde, feed_dict=feed_dict, options=run_options)
         noised_indexes, clean_indexes = get_noised_indexes(x_tilde, adj_new, num_node)
         feed_dict.update({placeholders["noised_mask"]: noised_indexes})
@@ -326,14 +315,8 @@ def test_one_graph(adj , adj_orig, features_csr, num_node, k_num ,model,placehol
         feed_dict.update({placeholders["noised_num"]: len(noised_indexes) / 2})
         test1 = model.test_new_indexes.eval(session=sess, feed_dict=feed_dict)
         test0 = model.test_noised_index.eval(session=sess, feed_dict=feed_dict)
-        # print("########")
-        # print(test0)
-        # print(test1)
-        # print(k_num)
-        # print(len(noised_indexes))
         new_adj = get_new_adj(feed_dict, sess, model,noised_indexes, adj_new, k_num, num_node)
     else:
-        # new_adj = adj_clean
         new_adj = adj
     new_adj_sparse = sp.csr_matrix(new_adj)
 
@@ -346,17 +329,11 @@ def test_one_graph(adj , adj_orig, features_csr, num_node, k_num ,model,placehol
 FLAGS = flags.FLAGS
 if __name__ == "__main__":
     current_time = datetime.datetime.now().strftime("%y%m%d%H%M%S")
-    ## Load datasets
-    # dataset_index = "IMDB-BINARY"
-    # IMDB-BINARY, IMDB-MULTI, REDDIT-BINARY, MUTAG, PTC_MR   # here is the possible dataset
-    dataset_index = 'PTC_MR'
     train_structure_input, train_feature_input, train_y, \
     train_num_nodes_all, test_structure_input, test_feature_input, \
-    test_y, test_num_nodes_all = load_data_subgraphs(dataset_index, train_ratio=0.9)
+    test_y, test_num_nodes_all = load_data_subgraphs(dataset_str, train_ratio=0.9)
     with open("results/results_%d_%s.txt"%(FLAGS.k, current_time), 'w+') as f_out:
         f_out.write( 'PSNR'+ ' ' + 'WL' + "\n")
         for i in range(1):
             psnr,wls = train()
             f_out.write(str(psnr)+ ' '+str(wls) + "\n")
-    print(dataset_index)
-    print(current_time)
