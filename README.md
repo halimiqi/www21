@@ -1,5 +1,5 @@
 # www21
-the denoise gvae of www21
+he denoise gvae of www21
 
 The Implemention of paper "Mask-GVAE: Blind De-noising Graphs via Partition"<sup>[1]</sup>. It is submiited to the WWW 2021: International World Wide Web Conferences .
 
