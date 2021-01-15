@@ -52,7 +52,7 @@ gpu_id = 1
 ###################################
 ### read and process the graph
 model_str = FLAGS.model
-# here is the possible dataset, IMDB-BINARY, IMDB-MULTI, REDDIT-BINARY, MUTAG, PTC_MR 
+# dataset: IMDB-MULTI, MUTAG 
 dataset_str = FLAGS.dataset
 noise_ratio = 0.1
 size = 0.1 # budget size
