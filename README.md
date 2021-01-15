@@ -1,9 +1,7 @@
 # www21
-the denoise gvae of www21
-
 The Implemention of paper "Mask-GVAE: Blind De-noising Graphs via Partition"<sup>[1]</sup>. It is submiited to the WWW 2021: International World Wide Web Conferences .
 
-![Mask-GVAE](https://github.com/halimiqi/www21/blob/master/Mask-GVAE_model.pdf)  
+![Mask-GVAE](https://github.com/halimiqi/www21/blob/master/Mask-GVAE_model.png)  
 
 ## Usage
 
@@ -19,7 +17,7 @@ The default dataset is MUTAG with noise edges added. To change the other dataset
 The model is implemented based on python=3.6.7 and tensorflow=1.13. Other requirements of the enviorment is listed in *requirements.txt*.
 
 ## Setting
-The code is training on Nvidia V100-PCIE GPU with 16 Gb RAM. The CPU is Intel(R) Xeon(R) Silver 4214R and the memory is 64Gb. This is not the minimum required setting for this project. Other hardware setting may also feasible for this implemention.
+The code is training on Nvidia V100 GPU with 16 Gb RAM. The CPU is Intel(R) Xeon(R) Silver 4214R and the memory is 64Gb. This is not the minimum required setting for this project. Other hardware setting may also feasible for this implemention.
 
 This work is collaborated by researchers from the Chinese University of Hong Kong, Georgia Institute of Technology and Huawei.
 
