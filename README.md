@@ -22,4 +22,4 @@ The code is training on Nvidia V100 GPU with 16 Gb RAM. The CPU is Intel(R) Xeon
 This work is collaborated by researchers from the Chinese University of Hong Kong, Georgia Institute of Technology and Huawei.
 
 ---
-[1] Li, Jia, et al. "Mask-GVAE: Blind De-noising Graphs via Partition"
+[1] Li, Jia, et al. "Mask-GVAE: Blind De-noising Graphs via Partition", In Companion Proceedings of the Web Conference 2021 (WWW '21).
