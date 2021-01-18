@@ -7,7 +7,7 @@ The Implemention of paper "Mask-GVAE: Blind De-noising Graphs via Partition"<sup
 
 To train the Mask-GVAE model, please run the *main_budget.py* as `python main_budget.py`
 
-The default dataset is MUTAG with noise edges added. To change the other dataset, please run `python main_budget.py --dataset=[Your dataset index]`. For the modification of other parameters, please visit the main_budget.py.
+The default dataset is PTC_MR with noise edges added. To change the other dataset, please run `python main_budget.py --dataset=[Your dataset index]`. For the modification of other parameters, please visit the main_budget.py.
  
 ## Environment
 The model is implemented based on python=3.6.7 and tensorflow=1.13. Other requirements of the enviorment is listed in *requirements.txt*.
