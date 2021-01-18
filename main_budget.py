@@ -8,9 +8,11 @@ import numpy as np
 import scipy.sparse as sp
 import time
 import os
-seed = 152   
+import random
+seed = 152
 np.random.seed(seed)
 tf.set_random_seed(seed)
+random.seed(seed)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from preprocessing import preprocess_graph, construct_feed_dict, sparse_to_tuple
@@ -39,8 +41,8 @@ flags.DEFINE_integer('features', 1, 'Whether to use features (1) or not (0).')
 from tensorflow.python.client import device_lib
 flags.DEFINE_integer("batch_size" , 64, "batch size")
 flags.DEFINE_integer("latent_dim" , 16, "the dim of latent code")
-flags.DEFINE_float("learn_rate_init" , 1e-03, "the init of learn rate")
-flags.DEFINE_float("learn_rate_init_gen" , 1e-05, "the init of learn rate")
+flags.DEFINE_float("learn_rate_init" , 0.01, "the init of learn rate")
+flags.DEFINE_float("learn_rate_init_gen" , 0.00001, "the init of learn rate")
 flags.DEFINE_integer("k", 20, "The edges to delete for the model")
 flags.DEFINE_float('ratio_loss_fea', 1, 'the ratio of generate loss for features')
 flags.DEFINE_boolean("train", True, "Training or Test")
@@ -88,7 +90,9 @@ def get_new_adj(feed_dict, sess, model, noised_index, adj_new, k, num_node):
                                             shape=new_adj.shape)
     return new_adj
 
-def add_noises_on_adjs(adj_list, num_nodes, noise_ratio = 0.1, ):
+def add_noises_on_adjs(adj_list, num_nodes, noise_ratio = 0.1, seed=seed):
+    np.random.seed(seed)
+    random.seed(seed)
     noised_adj_list = []
     # add_idx_list = []
     adj_orig_list = []
@@ -179,7 +183,7 @@ def train():
                                   )
     # init the session
     sess = tf.Session()
-    sess.run(tf.global_variables_initializer())
+    # sess.run(tf.global_variables_initializer()) # initial test
     # initial clean and noised_mask
     clean_mask = np.array([1,2,3,4,5])
     noised_mask = np.array([6,7,8,9,10])
@@ -191,11 +195,13 @@ def train():
     feed_dict.update({placeholders['node_mask']:node_mask})
     feed_dict.update({placeholders['dropout']: FLAGS.dropout})
     # ##################################
+
     if if_train:
+        sess.run(tf.global_variables_initializer()) # initial test
         for epoch in range(FLAGS.epochs):
             for i in tqdm(range(len(train_feature_input))):
                 train_one_graph(train_adj_list[i], train_adj_orig_list[i], train_feature_input[i], train_num_nodes_all[i], train_k_list[i], model, opt, placeholders,sess,new_learning_rate_gen,feed_dict, epoch, i)
-        saver = tf.train.Saver()
+        saver = tf.train.Saver()  # define saver in the loop
         saver.save(sess, "./checkpoints/{}.ckpt".format(dataset_str))
         print("Optimization Finished!")
         psnr_list = []
@@ -204,8 +210,9 @@ def train():
             psnr, wls = test_one_graph(test_adj_list[i], test_adj_orig_list[i],test_feature_input[i],test_num_nodes_all[i],test_k_list[i] , model, placeholders, sess, feed_dict)
             psnr_list.append(psnr)
             wls_list.append(wls)
+        print(psnr_list)
     else:
-      saver = tf.train.Saver()
+      saver = tf.train.Saver()  # define saver in the loop
       saver.restore(sess, "./checkpoints/{}.ckpt".format(dataset_str))
       psnr_list = []
       wls_list = []
@@ -213,30 +220,23 @@ def train():
           psnr, wls = test_one_graph(test_adj_list[i],test_adj_orig_list[i], test_feature_input[i], test_num_nodes_all[i], test_k_list[i], model, placeholders, sess, feed_dict)
           psnr_list.append(psnr)
           wls_list.append(wls)
+      print(psnr_list)
     ##################################
     ################## the PSRN and WL #########################
     print("#"*15)
     print("The PSNR is:")
-    psnr_list = [x for x in psnr_list if x != float("inf")] ## here isa bug, we can not check it
     print(np.mean(psnr_list))
     print("The WL is :")
     print(np.mean(wls_list))
-    return psnr,wls
+    return np.mean(psnr_list),np.mean(wls_list)
 
 def train_one_graph(adj,adj_orig, features_csr ,num_node, k_num ,model, opt,placeholders, sess,new_learning_rate,feed_dict, epoch, graph_index):
     adj_orig = adj_orig - sp.dia_matrix((adj_orig.diagonal()[np.newaxis, :], [0]),
                                         shape=adj_orig.shape)  # delete self loop
     adj_orig.eliminate_zeros()
     adj_new  = adj
-    row_sum = adj_new.sum(1).A1
-    row_sum = sp.diags(row_sum)
-    L = row_sum - adj_new
-    ori_Lap = features_csr.transpose().dot(L).dot(features_csr)
-    ori_Lap_trace = ori_Lap.diagonal().sum()
-    ori_Lap_log = np.log(ori_Lap_trace)
     features = sparse_to_tuple(features_csr.tocoo())
     adj_norm, adj_norm_sparse = preprocess_graph(adj_new)
-    adj_norm_sparse_csr = adj_norm_sparse.tocsr()
     adj_label = adj_new + sp.eye(adj.shape[0])
     adj_label = sparse_to_tuple(adj_label)
     ############
@@ -289,15 +289,8 @@ def test_one_graph(adj , adj_orig, features_csr, num_node, k_num ,model,placehol
                                         shape=adj_orig.shape)  # delete self loop
     adj_orig.eliminate_zeros()
     adj_new = adj
-    row_sum = adj_new.sum(1).A1
-    row_sum = sp.diags(row_sum)
-    L = row_sum - adj_new
-    ori_Lap = features_csr.transpose().dot(L).dot(features_csr)
-    ori_Lap_trace = ori_Lap.diagonal().sum()
-    ori_Lap_log = np.log(ori_Lap_trace)
     features = sparse_to_tuple(features_csr.tocoo())
     adj_label = adj_new + sp.eye(adj.shape[0])
-    adj_label_sparse = adj_label
     adj_label = sparse_to_tuple(adj_label)
     adj_clean = adj_orig.tocsr()
     k_num = int(k_num*size/noise_ratio) # match the budget size
@@ -317,7 +310,8 @@ def test_one_graph(adj , adj_orig, features_csr, num_node, k_num ,model,placehol
         test0 = model.test_noised_index.eval(session=sess, feed_dict=feed_dict)
         new_adj = get_new_adj(feed_dict, sess, model,noised_indexes, adj_new, k_num, num_node)
     else:
-        new_adj = adj
+        # new_adj = adj
+        new_adj = adj.copy()
     new_adj_sparse = sp.csr_matrix(new_adj)
 
     psnr = PSNR(adj_clean[:num_node, :num_node], new_adj_sparse[:num_node, :num_node])
@@ -337,3 +331,7 @@ if __name__ == "__main__":
         for i in range(1):
             psnr,wls = train()
             f_out.write(str(psnr)+ ' '+str(wls) + "\n")
+    print(dataset_str)
+    print(seed)
+    print(np.random.rand(5))
+    print(FLAGS.n_clusters)
