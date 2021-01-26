@@ -1,5 +1,5 @@
 # www21
-The Implemention of paper "Mask-GVAE: Blind De-noising Graphs via Partition"<sup>[1]</sup>. It is submiited to the WWW 2021: International World Wide Web Conferences .
+The Implemention of paper "Mask-GVAE: Blind De-noising Graphs via Partition"<sup>[1]</sup>. It is accepted by the WWW 2021: International World Wide Web Conferences .
 
 ![Mask-GVAE](https://github.com/halimiqi/www21/blob/master/Mask-GVAE_model.png)  
 
