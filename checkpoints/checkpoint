@@ -1,2 +1,0 @@
-model_checkpoint_path: "MUTAG.ckpt"
-all_model_checkpoint_paths: "MUTAG.ckpt"
